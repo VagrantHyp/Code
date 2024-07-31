@@ -143,13 +143,19 @@ def lsForces(lscgt):
 #Plot at specific force
 def Plot(lsCGT, f, DataType):
     for cgt in lsCGT:
+        
         #Find index of f
-        i = cgt.f.index(f)
+        try:
+            i = cgt.f.index(f) 
+        except ValueError:
+            continue
+
         if(DataType == 'Rg'):
             data = cgt.RgData[i]
         else:
             data = cgt.ReeData[i]
         plt.plot(data[0], data[1], label = 'T = ' + str(cgt.t))
+        
     plt.legend()
     plt.xlabel('Tf')
     plt.ylabel('<'+ DataType +'>')
