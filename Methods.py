@@ -115,8 +115,8 @@ class CGT:
             data = self.ReeData
 
         for i in range(len(self.f)):
-            half = len(data[i][0]) // 2
-            Mean.append(data[i][1][half:].mean())
+            equil = len(data[i][0]) // 3
+            Mean.append(data[i][1][equil:].mean())
         return Mean
 
 #Plot f if it is tested at at least two different t
