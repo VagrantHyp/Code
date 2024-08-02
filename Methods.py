@@ -107,6 +107,15 @@ class CGT:
         plt.ylabel('<'+ DataType + '>')
         plt.title('T = ' + str(self.t))
 
+    def Equil(self, data):
+        #Start searching for equilibirum halfway
+        half = len(data) // 2
+        for i in range(len(data))[half:]:
+                if np.abs(data[i] - data[i-1]) < 0.1:
+                    return i
+        print("Use temporary mean starting halfway")
+        return half
+
     #Calculate ave Rg/Ree at each f
     def mean(self, Datatype):
         Mean = []
@@ -115,8 +124,9 @@ class CGT:
             data = self.ReeData
 
         for i in range(len(self.f)):
-            equil = len(data[i][0]) // 3
+            equil = self.Equil(data[i][1])
             Mean.append(data[i][1][equil:].mean())
+
         return Mean
 
 #Plot f if it is tested at at least two different t
@@ -155,6 +165,11 @@ def Plot(lsCGT, f, DataType):
         else:
             data = cgt.ReeData[i]
         plt.plot(data[0], data[1], label = 'T = ' + str(cgt.t))
+        
+        # Plot equilibirum section
+        equil = cgt.Equil(data[1])
+        plt.plot(data[0][equil:], data[1][equil:], color = 'k')
+
         
     plt.legend()
     plt.xlabel('Tf')
