@@ -1,12 +1,17 @@
 import numpy as np
 import matplotlib.pylab as plt
 
+#Modify this everytime new temp is tested for any configuration
+temps = [0.1, 0.3, 0.5, 0.75, 1, 2, 5]
+
 class CGT:
 
     def __init__(self, f, t, RgPaths, ReePaths):
         
         self.f = f
         self.t = t
+        self.color = 'C' + str(temps.index(t))
+
         self.RgPaths = RgPaths
         self.ReePaths = ReePaths
 
@@ -101,7 +106,7 @@ class CGT:
         
         for i in range(len(self.f)):
                 data = default[i]
-                plt.plot(data[0],data[1],label = 'f=' + str(self.f[i]))
+                plt.plot(data[0],data[1], label = 'f=' + str(self.f[i]))
         plt.legend()
         plt.xlabel("Timeframe")
         plt.ylabel('<'+ DataType + '>')
