@@ -107,6 +107,11 @@ class CGT:
         for i in range(len(self.f)):
                 data = default[i]
                 plt.plot(data[0],data[1], label = 'f=' + str(self.f[i]))
+                
+                #Plot Equilibirum Section
+                equil = self.Equil(data[1])
+                plt.plot(data[0][equil:], data[1][equil:], color = 'k')
+
         plt.legend()
         plt.xlabel("Timeframe")
         plt.ylabel('<'+ DataType + '>')
