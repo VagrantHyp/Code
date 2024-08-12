@@ -109,7 +109,7 @@ class CGT:
                 plt.plot(data[0],data[1], label = 'f=' + str(self.f[i]))
                 
                 #Plot Equilibirum Section
-                equil = self.Equil(data[1])
+                equil = self.Equil(data[1], 'F = ' + str(self.f[i]))
                 plt.plot(data[0][equil:], data[1][equil:], color = 'k')
 
         plt.legend()
@@ -117,13 +117,13 @@ class CGT:
         plt.ylabel('<'+ DataType + '>')
         plt.title('T = ' + str(self.t))
 
-    def Equil(self, data):
+    def Equil(self, data, str):
         #Start searching for equilibirum halfway
         half = len(data) // 2
-        for i in range(len(data))[half:]:
-                if np.abs(data[i] - data[i-1]) < 0.1:
+        for i in range(len(data))[half:-1]:
+                if np.abs(data[i] - data[-1]) < 0.25:
                     return i
-        print("Use temporary mean starting halfway")
+        print("Use temporary mean starting halfway:" + str)
         return half
 
     #Calculate ave Rg/Ree at each f
@@ -134,7 +134,7 @@ class CGT:
             data = self.ReeData
 
         for i in range(len(self.f)):
-            equil = self.Equil(data[i][1])
+            equil = self.Equil(data[i][1], 'F = ' + str(self.f[i]))
             Mean.append(data[i][1][equil:].mean())
 
         return Mean
@@ -166,7 +166,7 @@ def Plot(lsCGT, f, DataType):
         
         #Find index of f
         try:
-            i = cgt.f.index(f) 
+            i = cgt.f.index(f)
         except ValueError:
             continue
 
@@ -177,7 +177,7 @@ def Plot(lsCGT, f, DataType):
         plt.plot(data[0], data[1], label = 'T = ' + str(cgt.t))
         
         # Plot equilibirum section
-        equil = cgt.Equil(data[1])
+        equil = cgt.Equil(data[1], 'T = ' + str(cgt.t))
         plt.plot(data[0][equil:], data[1][equil:], color = 'k')
 
         
