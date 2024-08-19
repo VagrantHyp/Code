@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pylab as plt
 
 #Modify this everytime new temp is tested for any configuration
-temps = [0.1, 0.3, 0.5, 0.75, 1, 2, 5]
+temps = [0.1, 0.3, 0.4, 0.5, 0.75, 1, 2, 5]
 
 class CGT:
 
