@@ -8,7 +8,7 @@ class CGT:
 
     def __init__(self, f, t, RgPaths, ReePaths):
         
-        self.f = f
+        self.f = np.array(f)
         self.t = t
         self.color = 'C' + str(temps.index(t))
 
@@ -23,11 +23,11 @@ class CGT:
             self.RgData.append(self.Data(p))
         
         for p in self.ReePaths:
-            self.ReeData.append(self.ReeCalc(p))
+            self.ReeData.append(self.ReeCalc1(p))
         
         #Average data at each force
-        self.aveRg = self.mean('Rg')
-        self.aveRee = self.mean('Ree')
+        self.aveRg = np.array(self.mean('Rg'))
+        self.aveRee = np.array(self.mean('Ree'))
         
     #Rg Methods
     def Data(self, path):
@@ -64,7 +64,7 @@ class CGT:
         rf = np.zeros((Nf,M,Ncols))
         Ree = np.zeros((Nf,M))
 
-        #Find all data with type 3 or 4 molecule (first and last molecule in a chain)
+        #Find all data with type 3 or 4 atom (first and last molecule in a chain)
         for t in range(Nf):
             ji = 0
             jf = 0
@@ -95,6 +95,71 @@ class CGT:
         #Return the Nf vector and the average
         nf = np.linspace(Nfi,(Nfi//300000+Nf-1)*300000,Nf)
         Ree = Ree.mean(axis = 1)
+        return [nf,Ree]
+    
+    def ReeCalc1(self,path): 
+        Nlpf = 10009
+        M = 100; N = 100
+        Ndata = int(M*N)
+        Ncols = 9
+
+        with open(path, 'r') as file:
+
+            LINES = file.readlines()
+
+            Nf = len(LINES) // Ndata
+            Nfi = int(LINES[1])
+
+            file.seek(0) # go back to start of file
+
+            all_frames=[]
+
+            while True:
+                # Skip the non-numeric header lines (assumed to be 9 lines)
+                for _ in range(9):
+                    line = file.readline()
+                    if not line:
+                        break  # End of file
+                else:
+                    # Read the next block of data
+                    frame_data = np.loadtxt(file, max_rows=Nlpf-9)
+                    all_frames.append(frame_data)
+                    continue
+                break  # Exit the loop if EOF
+
+        # Combine all frames into a single numpy array
+        D = np.vstack(all_frames).reshape(Nf,Nlpf-9,Ncols)
+
+        #Calculate end-to-end
+        ri = np.zeros((Nf,M,Ncols))
+        rf = np.zeros((Nf,M,Ncols))
+
+        for t in range(Nf):
+            frame = D[t]
+
+            # Vectorized filtering
+            type3_data = frame[frame[:Ndata, 2] == 3]  # Select first NData rows with type 3
+            type4_data = frame[frame[:Ndata, 2] == 4]  # Select first NData rows with type 4
+
+            # Sort by id (assuming id is in the first column, index 0)
+            type3_data = type3_data[np.argsort(type3_data[:, 0])]
+            type4_data = type4_data[np.argsort(type4_data[:, 0])]
+
+            # Extract positions directly
+            ri[t] = type3_data
+            rf[t] = type4_data
+
+
+        #Extact position
+        ri = ri[:,:,3:6]
+        rf = rf[:,:,3:6]
+
+        #Calculate Ree and Distances 
+        Ree = np.sqrt(np.square(rf-ri).sum(axis=-1)).mean(axis=1) 
+        
+        #Return the Nf vector and the average
+        nf = np.linspace(Nfi,(Nfi//300000+Nf-1)*300000,Nf)
+
         return [nf,Ree]
     
     #Plot Data under constant temperature
