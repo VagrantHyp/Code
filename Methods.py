@@ -23,7 +23,7 @@ class CGT:
             self.RgData.append(self.Data(p))
         
         for p in self.ReePaths:
-            self.ReeData.append(self.ReeCalc1(p))
+            self.ReeData.append(self.ReeCalc(p))
         
         #Average data at each force
         self.aveRg = np.array(self.mean('Rg'))
@@ -41,63 +41,8 @@ class CGT:
         #Get Rg data for each frame and molecule
         Rg = RG_All.mean(axis=1)
         return [t,Rg]
-
-    #Ree Methods
-    def ReeCalc(self, path): 
-        Nlpf = 10009
-        M = 100; N = 100
-        Ndata = int(M*N)
-        Ncols = 9
-
-        with open(path, 'r') as file:
-            LINES = file.readlines()
-
-        D = np.loadtxt(path, skiprows=9, max_rows=10000)
-        Nf = len(LINES) // Ndata
-        Nfi = int(LINES[1])
-        for i in range(Nf)[1:]:
-            D = np.append(D,np.loadtxt(path, skiprows = 9+10009*i, max_rows = 10000), axis = 0)
-        D = D.reshape(Nf,Nlpf-9,Ncols)
-        
-        #Calculate end-to-end
-        ri = np.zeros((Nf,M,Ncols))
-        rf = np.zeros((Nf,M,Ncols))
-        Ree = np.zeros((Nf,M))
-
-        #Find all data with type 3 or 4 atom (first and last molecule in a chain)
-        for t in range(Nf):
-            ji = 0
-            jf = 0
-            for i in range(Ndata):
-                if D[t,i,2] == 3:
-                    ri[t,ji] = D[t,i,:]
-                    ji += 1
-                elif D[t,i,2] == 4:
-                    rf[t,jf] = D[t,i,:]
-                    jf += 1
-            #Sort according to id
-            ri[t] = ri[t][ri[t][:,1].argsort()]
-            rf[t] = rf[t][rf[t][:,1].argsort()]
-
-
-        #Extact position
-        ri = ri[:,:,3:6]
-        rf = rf[:,:,3:6]
-
-        #Calculation of distance
-        for t in range(Nf):
-            for i in range(M):
-                dx = rf[t,i,0] - ri[t,i,0]
-                dy = rf[t,i,1] - ri[t,i,1]
-                dz = rf[t,i,2] - ri[t,i,2]
-                Ree[t,i] = np.sqrt(dx**2+dy**2+dz**2)
-
-        #Return the Nf vector and the average
-        nf = np.linspace(Nfi,(Nfi//300000+Nf-1)*300000,Nf)
-        Ree = Ree.mean(axis = 1)
-        return [nf,Ree]
     
-    def ReeCalc1(self,path): 
+    def ReeCalc(self,path): 
         Nlpf = 10009
         M = 100; N = 100
         Ndata = int(M*N)
