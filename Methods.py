@@ -2,8 +2,10 @@ import numpy as np
 import matplotlib.pylab as plt
 
 #Modify this everytime new temp is tested for any configuration
+#This is for assigning color to each temperature tested
 temps = [0.1, 0.3, 0.4, 0.5, 0.75, 1, 2, 5]
 
+#Class for creating an object that represents simulation tested under a constant temperature
 class CGT:
 
     def __init__(self, f, t, RgPaths, ReePaths):
@@ -25,11 +27,11 @@ class CGT:
         for p in self.ReePaths:
             self.ReeData.append(self.ReeCalc(p))
         
-        #Average data at each force
+        #Average extension at each force
         self.aveRg = np.array(self.mean('Rg'))
         self.aveRee = np.array(self.mean('Ree'))
         
-    #Rg Methods
+    #Parse Rg data into workable 3d matrix
     def Data(self, path):
         Nlpf = 101
         D = np.loadtxt(path)
@@ -42,6 +44,7 @@ class CGT:
         Rg = RG_All.mean(axis=1)
         return [t,Rg]
     
+    #Parse Ree data into workable 3d matrix
     def ReeCalc(self,path): 
         Nlpf = 10009
         M = 100; N = 100
@@ -127,12 +130,14 @@ class CGT:
         plt.ylabel('<'+ DataType + '>')
         plt.title('T = ' + str(self.t))
 
+    #Find the timeframe at which equilibirum is achieved
     def Equil(self, data, str):
         #Start searching for equilibirum halfway
         half = len(data) // 2
         for i in range(len(data))[half:-1]:
                 if np.abs(data[i] - data[-1]) < 0.25:
                     return i
+        #If no i is returned, that means no equilibirum found. Calculate equilibirum from the second half of data
         print("Use temporary mean starting halfway:" + str)
         return half
 
@@ -170,7 +175,7 @@ def lsForces(lscgt):
     return ls
     
 
-#Plot at specific force
+#Plot all temperatures at specific force
 def Plot(lsCGT, f, DataType):
     for cgt in lsCGT:
         
