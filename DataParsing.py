@@ -10,7 +10,7 @@ class CGT:
 
     def __init__(self, f, t, Nseg, ReePaths, RgPaths=None):
         
-        self.f = f
+        self.f = np.array(f)
         self.t = t
         self.Nseg = Nseg
         self.color = 'C' + str(temps.index(t))
