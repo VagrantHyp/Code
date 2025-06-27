@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pylab as plt
+from scipy import stats
+from scipy.integrate import simpson  # for numerical integration
 
 #Modify this everytime new temp is tested for any configuration
 #This is for assigning color to each temperature tested
@@ -8,14 +10,14 @@ temps = [0.1, 0.3, 0.4, 0.5, 0.75, 1, 2, 5]
 #Create an object that represents simulation tested under a constant temperature
 class CGT:
 
-    def __init__(self, f, t, Nseg, ReePaths, RgPaths=None):
+    def __init__(self, f, t, Nseg, ReePaths, RgPaths):
         
         self.f = np.array(f)
         self.t = t
         self.Nseg = Nseg
         self.color = 'C' + str(temps.index(t))
 
-        self.RgPaths = RgPaths if RgPaths is not None else ""
+        self.RgPaths = RgPaths
         self.ReePaths = ReePaths
         
         #Global Ree parameter
@@ -25,7 +27,7 @@ class CGT:
         self.Ncols = 9
         self.Mseg = self.N//self.Nseg * self.M 
         
-        #Raw data
+        #Data in equilibrium
         self.ParsedRee = [] #Nf x M*N (10000) x col
         self.ParsedRg = [] #Nf x M (100)
         
@@ -33,19 +35,52 @@ class CGT:
         self.RgData = [] #Nf x mean Rg
         self.ReeData = [] #Nf x mean Ree
         
-        for p in self.RgPaths:
-            t, data = self.RgParse(p)
-            self.ParsedRg.append(data)
-            self.RgData.append([t, data.mean(axis = 1)])
+        #Mean extension over all timesteps
+        self.aveRg = np.empty(0) 
+        self.aveRee = np.empty(0)
         
-        for p in self.ReePaths:
-            data = self.ReeParse(p)
-            self.ParsedRee.append(data)
-            self.ReeData.append(self.ReeCalc(data))
+        #Draw both Rg and Ree vs time
+        fig, axes = plt.subplots(nrows = 1, ncols= 2, figsize = (20, 8))
+        axes[0].set_title('Rg')
+        axes[1].set_title('Ree')
         
-        #Averaged data per force
-        self.aveRg = np.array(self.mean('Rg')) if RgPaths is not None else []
-        self.aveRee = np.array(self.mean('Ree'))
+        for i in range(len(self.RgPaths)):
+
+            #Rg
+            t, data = self.RgParse(self.RgPaths[i])
+            Rg = data.mean(axis = 1) #Mean at each tf
+            
+            #Find equilibrium time
+            eqTf = self.findEquil(t[1:],Rg[1:]) #Exclude first frame
+            if eqTf == t[-1]:
+                print(f'No equilirbium found: F{self.f[i]}')
+            mask = (t>=eqTf)
+            self.ParsedRg.append(data[mask])
+            self.RgData.append([t[mask], Rg[mask]])
+            self.aveRg = np.append(self.aveRg, Rg[mask].mean())
+            
+            axes[0].plot(t, Rg, label = f'F{self.f[i]}')
+            axes[0].plot(t[mask], Rg[mask], color = 'black')
+            
+            #Ree
+            t, data = self.ReeParse(self.ReePaths[i])
+            Ree = self.ReeCalc(data)
+            
+            #Find equilibrium time
+            eqTf = self.findEquil(t[1:],Ree[1:]) #Exclude first frame
+            if eqTf == t[-1]:
+                print(f'No equilirbium found: F{self.f[i]}')
+            mask = (t>=eqTf)
+            self.ParsedRee.append(data[mask])
+            self.ReeData.append([t[mask], Ree[mask]])
+            self.aveRee = np.append(self.aveRee, Ree[mask].mean())
+            
+            axes[1].plot(t, Ree, label = f'F{self.f[i]}')
+            axes[1].plot(t[mask], Ree[mask], color = 'black')
+        
+        plt.tight_layout()
+        plt.legend()
+        plt.show()
         
     #Parse Rg data into workable matrix
     def RgParse(self, path):
@@ -54,8 +89,9 @@ class CGT:
         Nf = D.shape[0]//101
         D = D.reshape(Nf,Nlpf,2)
         
-        #Get time from first row
-        t = D[:,0,0]
+        #Get timeframe from first row
+        t = D[:,0,0]/1e5
+        t = t - t[0] #Start from 0
         #Get Rg from second column
         Rg = D[:,1:,1]
         return t,Rg
@@ -63,10 +99,10 @@ class CGT:
     #Parse Ree data into workable matrix
     def ReeParse(self, path): 
         with open(path, 'r') as file:
-
+            
             LINES = file.readlines()
-
-            Nf = len(LINES) // self.Ndata
+            
+            Nf = len(LINES) // (10009)
 
             file.seek(0) # go back to start of file
 
@@ -84,7 +120,7 @@ class CGT:
                     all_frames.append(frame_data)
                     continue
                 break  # Exit the loop if EOF
-
+        
         # Combine all frames into a single numpy array
         D = np.vstack(all_frames).reshape(Nf,self.Ndata,self.Ncols)
         
@@ -94,8 +130,10 @@ class CGT:
             key = np.argsort(ids)
             D[f,:,:] = D[f,key,:]
 
-        return D
-
+        t = np.linspace(0, (Nf-1)*3, Nf)
+        
+        return t, D
+        
     #Insert parsed Ree data and calculate Ree
     def ReeCalc(self, D):
         Nf = D.shape[0]
@@ -108,16 +146,6 @@ class CGT:
         Type4 = D[D[:,:,2] == 4]
         Type4 = Type4.reshape(Nf, 100, 9)
 
-        # Sort by molecular id
-        for t in range(Nf):
-            ids3 = Type3[t, :, 1]
-            key3 = np.argsort(ids3)
-            Type3[t,:,:] = Type3[t, key3, :]
-            
-            ids4 = Type4[t, :, 1]
-            key4 = np.argsort(ids4)
-            Type4[t,:,:] = Type4[t, key4, :]
-
         #Extract Position vector
         Type3 = Type3[:,:,3:6]
         Type4 = Type4[:,:,3:6]
@@ -126,98 +154,29 @@ class CGT:
         dX = Type3-Type4
         Ree = np.linalg.norm(dX, axis = 2).mean(axis=1)
         
-        #Create a timeframe array
-        nf = np.linspace(0,(Nf-1)*300000,Nf)
-        
-        return [nf,Ree]
+        return Ree
     
-    #Plot tf vs extension under constant temperature
-    #DataType must be either "Rg" or "Ree"
-    def Plot(self, DataType):
-        default = self.RgData
-        if(DataType == 'Ree'):
-            default = self.ReeData
+    # Equilibrium criterion:
+    # Linear regression of average RG data less than cutoff = 0.01
+    # Timescale normalized about the correlation time
+    # Source: https://chem.libretexts.org/Bookshelves/Biological_Chemistry/Concepts_in_Biophysical_Chemistry_(Tokmakoff)/06%3A_Dynamics_and_Kinetics/22%3A_Biophysical_Reaction_Dynamics/22.05%3A_Time-Correlation_Functions
+    def findEquil(self, t, Rg):
+        cutoff = 0.05
+
+        #Compute autocorrelation
+        dRg = Rg - Rg.mean()
+        result = np.correlate(dRg, dRg, mode = 'full')
+        result = result[result.size // 2:] # Keep the positive lags
+        acf = result / result[0] #Normalized autocorrelation
         
-        for i in range(len(self.f)):
-                data = default[i]
-                plt.plot(data[0],data[1], label = 'f=' + str(self.f[i]))
-                
-                #Plot Equilibirum Section
-                equil = self.Equil(data[1], 'F = ' + str(self.f[i]))
-                plt.plot(data[0][equil:], data[1][equil:], color = 'k')
-
-        plt.legend()
-        plt.xlabel("Timeframe")
-        plt.ylabel('<'+ DataType + '> ($\sigma$)')
-        plt.title('T = ' + str(self.t))
-
-    #Find the timeframe at which equilibirum is achieved
-    def Equil(self, data, str):
-        #Start searching for equilibirum halfway
-        half = len(data) // 2
-        for i in range(len(data))[half:-1]:
-                if np.abs(data[i] - data[-1]) < 0.25:
-                    return i
-        #If no i is returned, that means no equilibirum found. Calculate equilibirum from the second half of data
-        print("Use temporary mean starting halfway:" + str)
-        return half
-
-    #Calculate ave Rg/Ree at each f
-    def mean(self, Datatype):
-        Mean = []
-        data = self.RgData
-        if(Datatype == 'Ree'):
-            data = self.ReeData
-
-        for i in range(len(self.f)):
-            equil = self.Equil(data[i][1], 'F = ' + str(self.f[i]))
-            Mean.append(data[i][1][equil:].mean())
-
-        return Mean    
-
-#Plot f if it is tested at at least two different t
-def lsForces(lscgt):
-    #Find the largest set of forces
-    ls = []
-    lsCGT = lscgt[:]
-    force = lsCGT[0].f
-    MTcgt = lsCGT[0] #Most Tested CGT
-    for cgt in lsCGT[1:]:
-        if(len(cgt.f) > len(force)):
-            force = cgt.f
-            MTcgt = cgt
-    #Go through each force and see if it is tested at another temperature
-    lsCGT.remove(MTcgt)
-    for f in force:
-        for cgt in lsCGT:
-            if f in cgt.f:
-                ls.append(f)
-                break
-    return ls
-    
-
-#Plot all temperatures at specific force
-def Plot(lsCGT, f, DataType):
-    for cgt in lsCGT:
+        #Apply numerical integration
+        positive_acf = acf[acf > 0]  # Ignore negative part to avoid integration errors
+        tau_c = simpson(positive_acf, dx=1) #Correlation time
+        t_scaled = t/tau_c
         
-        #Find index of f
-        try:
-            i = cgt.f.index(f)
-        except ValueError:
-            continue
-
-        if(DataType == 'Rg'):
-            data = cgt.RgData[i]
-        else:
-            data = cgt.ReeData[i]
-        plt.plot(data[0], data[1], label = 'T = ' + str(cgt.t) + "$\epsilon$/$k_B$")
+        for i in range(len(t)-int(tau_c)):
+            res = stats.linregress(t_scaled[i:], Rg[i:])
+            if res.pvalue >= cutoff:
+                return t[i]
         
-        # Plot equilibirum section
-        equil = cgt.Equil(data[1], 'T = ' + str(cgt.t) + "$\epsilon$/$k_B$")
-        plt.plot(data[0][equil:], data[1][equil:], color = 'k')
-
-        
-    plt.legend()
-    plt.xlabel('Tf')
-    plt.ylabel('<'+ DataType +'> ($\sigma$)')
-    plt.title('F = ' + str(f) + '$\epsilon$/$\sigma$')
+        return t[-1] #If no equilibrium found, return last frame
