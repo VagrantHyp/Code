@@ -20,6 +20,10 @@ class CGT:
         self.RgPaths = RgPaths
         self.ReePaths = ReePaths
         
+        #Check if the input force and data are consistent
+        if len(f) != len(ReePaths):
+            raise ValueError("Length of force and data doesn't match")
+        
         #Global Ree parameter
         self.Nlpf = 10009
         self.M = 100; self.N = 100
